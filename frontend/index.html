@@ -1,24 +1,276 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARistotle</title>
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body { font-family: 'Courier New', monospace; background: #000; overflow: hidden; }
+
+    #top-hud {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 20px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+    }
+    .brand { font-size: 18px; color: #00ffaa; letter-spacing: 4px; font-weight: bold; }
+    .brand span { color: #FFD700; }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; color: #00ffaa88; letter-spacing: 2px;
+    }
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #00ff88;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+    #crosshair {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px; height: 40px; z-index: 998; pointer-events: none;
+    }
+    #crosshair::before {
+      content: ''; position: absolute; top: 50%; left: 0; right: 0;
+      height: 1px; background: rgba(0,255,170,0.5);
+    }
+    #crosshair::after {
+      content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+      width: 1px; background: rgba(0,255,170,0.5);
+    }
+    .corner {
+      position: absolute; width: 10px; height: 10px;
+      border-color: #00ffaa; border-style: solid;
+    }
+    .corner.tl { top:0; left:0; border-width:2px 0 0 2px; }
+    .corner.tr { top:0; right:0; border-width:2px 2px 0 0; }
+    .corner.bl { bottom:0; left:0; border-width:0 0 2px 2px; }
+    .corner.br { bottom:0; right:0; border-width:0 2px 2px 0; }
+
+    #bottom-panel {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
+      background: linear-gradient(to top, rgba(0,0,0,0.92) 70%, transparent);
+      padding: 20px 20px 28px;
+    }
+    #scan-label {
+      font-size: 9px; letter-spacing: 3px;
+      color: #00ffaa44; margin-bottom: 10px;
+    }
+    #object-list { display: flex; flex-direction: column; gap: 8px; }
+    .object-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: rgba(0,255,170,0.06);
+      border: 1px solid rgba(0,255,170,0.15);
+      border-left: 3px solid #00ffaa;
+      border-radius: 6px; padding: 10px 14px;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:none;} }
+
+    .obj-icon {
+      width: 38px; height: 38px; border-radius: 6px;
+      background: rgba(0,255,170,0.12);
+      border: 1px solid rgba(0,255,170,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; color: #00ffaa; letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+    .obj-info { flex: 1; min-width: 0; }
+    .obj-name {
+      font-size: 12px; color: #00ffaa;
+      letter-spacing: 2px; margin-bottom: 3px;
+    }
+    .obj-explanation {
+      font-size: 10px; color: #aaffdd99;
+      line-height: 1.5; font-family: sans-serif;
+    }
+    .conf-track {
+      height: 2px; background: rgba(0,255,170,0.15);
+      border-radius: 2px; margin-top: 6px;
+    }
+    .conf-fill {
+      height: 100%; border-radius: 2px;
+      background: linear-gradient(90deg, #00ffaa, #FFD700);
+      transition: width 0.5s ease;
+    }
+
+    #status-bar {
+      position: fixed; top: 52px; left: 50%;
+      transform: translateX(-50%); z-index: 999;
+      font-size: 9px; letter-spacing: 2px;
+      color: #00ffaa66; text-align: center;
+      transition: all 0.3s ease;
+    }
+    #status-bar.thinking { color: #FFD700aa; }
+    #status-bar.error { color: #ff6666aa; }
+
+    #scan-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; z-index: 997;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,255,170,0.015) 3px, rgba(0,255,170,0.015) 4px
+      );
+    }
+    #moving-scan {
+      position: fixed; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(0,255,170,0.3), transparent);
+      z-index: 998; animation: scanMove 4s linear infinite; pointer-events: none;
+    }
+    @keyframes scanMove { 0%{top:0%} 100%{top:100%} }
+
+    a-scene { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+  </style>
 </head>
-<body style="margin:0; overflow:hidden;">
+<body>
+
+  <!-- AR Scene (background layer) -->
   <a-scene
     embedded
     arjs="sourceType: webcam; debugUIEnabled: false;"
-    renderer="logarithmicDepthBuffer: true;"
+    renderer="logarithmicDepthBuffer: true; antialias: true;"
     vr-mode-ui="enabled: false">
-    
-    <a-text
-      value="Hello AR World!"
-      position="0 0 -3"
-      color="#FF007F"
-      scale="2 2 2">
-    </a-text>
-
     <a-entity camera></a-entity>
   </a-scene>
+
+  <div id="scan-overlay"></div>
+  <div id="moving-scan"></div>
+
+  <div id="top-hud">
+    <div class="brand">AR<span>istotle</span></div>
+    <div class="live-badge">
+      <div class="pulse-dot"></div>
+      <span id="fps-counter">AI LIVE</span>
+    </div>
+    <div style="font-size:9px; color:#00ffaa44; letter-spacing:1px;">VISIONARY 2.0</div>
+  </div>
+
+  <div id="crosshair">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+  </div>
+
+  <div id="status-bar">POINT CAMERA AT ANY OBJECT</div>
+
+  <!-- Bottom detection panel -->
+  <div id="bottom-panel">
+    <div id="scan-label">DETECTED OBJECTS</div>
+    <div id="object-list">
+      <div class="object-card">
+        <div class="obj-icon">👁</div>
+        <div class="obj-info">
+          <div class="obj-name">SCANNING ENVIRONMENT...</div>
+          <div class="obj-explanation">Initializing YOLOv8 object detection and AI explanation engine.</div>
+          <div class="conf-track"><div class="conf-fill" style="width:20%; animation: grow 2s infinite;"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BACKEND_URL = 'http://localhost:8000';
+    let isAnalyzing = false;
+    let detectionCache = {};
+
+    const statusBar = document.getElementById('status-bar');
+    const objectList = document.getElementById('object-list');
+
+    function setStatus(msg, type = '') {
+      statusBar.textContent = msg;
+      statusBar.className = type;
+    }
+
+    async function captureFrame() {
+      const video = document.querySelector('video');
+      if (!video || video.readyState < 2) return null;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, 640, 480);
+      return canvas.toDataURL('image/jpeg', 0.6);
+    }
+
+    function renderDetections(detections) {
+      if (!detections || detections.length === 0) {
+        objectList.innerHTML = `
+          <div class="object-card">
+            <div class="obj-icon">?</div>
+            <div class="obj-info">
+              <div class="obj-name">NOTHING DETECTED</div>
+              <div class="obj-explanation">Move closer to an object or improve lighting.</div>
+              <div class="conf-track"><div class="conf-fill" style="width:0%"></div></div>
+            </div>
+          </div>`;
+        return;
+      }
+
+      objectList.innerHTML = detections.map(det => {
+        const initials = det.label.substring(0, 3).toUpperCase();
+        const confPct = Math.round(det.confidence * 100);
+        const color = confPct > 80 ? '#00ffaa' : confPct > 60 ? '#FFD700' : '#ff9966';
+        return `
+          <div class="object-card" style="border-left-color: ${color}">
+            <div class="obj-icon" style="color:${color}; border-color:${color}44">${initials}</div>
+            <div class="obj-info">
+              <div class="obj-name" style="color:${color}">${det.label.toUpperCase()} — ${confPct}%</div>
+              <div class="obj-explanation">${det.explanation || 'Generating explanation...'}</div>
+              <div class="conf-track">
+                <div class="conf-fill" style="width:${confPct}%"></div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function analyzeScene() {
+      if (isAnalyzing) return;
+      isAnalyzing = true;
+      setStatus('ANALYZING...', 'thinking');
+
+      try {
+        const imageData = await captureFrame();
+        if (!imageData) {
+          setStatus('CAMERA NOT READY', 'error');
+          isAnalyzing = false;
+          return;
+        }
+
+        const response = await fetch(`${BACKEND_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: imageData })
+        });
+
+        if (!response.ok) throw new Error('Backend error');
+
+        const data = await response.json();
+
+        // Handle both single result and array
+        const detections = Array.isArray(data) ? data : [data];
+        renderDetections(detections);
+        setStatus(`${detections.length} OBJECT(S) IDENTIFIED`);
+
+      } catch (err) {
+        setStatus('BACKEND OFFLINE — START Python SERVER', 'error');
+        console.error(err);
+      }
+
+      isAnalyzing = false;
+    }
+
+    // Analyze every 3 seconds
+    setTimeout(() => {
+      analyzeScene();
+      setInterval(analyzeScene, 3000);
+    }, 2000); // wait 2s for camera to start
+  </script>
 </body>
 </html>
