@@ -3,74 +3,184 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ARistotle — AI Object Explainer</title>
+  <title>ARistotle</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%234ade80'/><text x='50' y='72' font-size='60' text-anchor='middle' fill='%23000'>A</text></svg>">
-  <link rel="stylesheet" href="style.css">
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#000;overflow:hidden}
+    a-scene{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1}
+
+    #grid{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.028;
+      background-image:linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px);background-size:58px 58px}
+
+    #sweep{position:fixed;left:0;right:0;height:1px;z-index:3;pointer-events:none;
+      background:linear-gradient(90deg,transparent,rgba(74,222,128,.14),transparent);
+      animation:sweep 7s linear infinite}
+    @keyframes sweep{0%{top:0%}100%{top:100%}}
+
+    #topbar{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;
+      justify-content:space-between;align-items:center;padding:16px 20px;
+      background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent)}
+    .wm{font-size:15px;font-weight:700;color:#fff;letter-spacing:.04em}
+    .wm b{color:#4ade80}
+    .pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:4px 11px}
+    .dot{width:7px;height:7px;border-radius:50%;background:#4ade80;animation:p 2s ease-in-out infinite}
+    @keyframes p{0%,100%{opacity:1}50%{opacity:.15}}
+    .pill span{font-size:9px;font-weight:600;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase}
+    .ver{font-size:9px;color:rgba(255,255,255,.18);letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+
+    #status{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:999;
+      background:rgba(0,0,0,.38);border:1px solid rgba(255,255,255,.07);
+      border-radius:20px;padding:5px 16px;font-size:11px;color:rgba(255,255,255,.35);
+      letter-spacing:.06em;white-space:nowrap;backdrop-filter:blur(6px);transition:color .3s}
+
+    #xhair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:44px;height:44px;z-index:998;pointer-events:none}
+    .ch{position:absolute;background:rgba(74,222,128,.35)}
+    .ch.h{top:50%;left:0;right:0;height:1px}
+    .ch.v{left:50%;top:0;bottom:0;width:1px}
+    .cc{position:absolute;width:11px;height:11px;border:1.5px solid #4ade80;border-style:solid}
+    .cc.tl{top:0;left:0;border-right:0;border-bottom:0}
+    .cc.tr{top:0;right:0;border-left:0;border-bottom:0}
+    .cc.bl{bottom:0;left:0;border-right:0;border-top:0}
+    .cc.br{bottom:0;right:0;border-left:0;border-top:0}
+
+    /* Cards float at bottom — no heavy panel */
+    #results{position:fixed;bottom:18px;left:14px;right:14px;z-index:999;
+      display:flex;gap:8px;align-items:flex-end}
+
+    .card{flex:1;min-width:0;background:rgba(8,8,16,.8);border:1px solid rgba(255,255,255,.07);
+      border-left:3px solid #4ade80;border-radius:10px;padding:11px 13px;
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);animation:rise .3s ease}
+    @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .ct{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+    .cn{font-size:13px;font-weight:600;color:rgba(255,255,255,.88)}
+    .cp{font-size:11px;font-weight:700;color:#4ade80}
+    .cx{font-size:11px;color:rgba(255,255,255,.42);line-height:1.5;margin-bottom:7px}
+    .cb{height:2px;background:rgba(255,255,255,.07);border-radius:1px;overflow:hidden}
+    .cf{height:100%;border-radius:1px;background:#4ade80;transition:width .5s ease}
+
+    #watermark{flex-shrink:0;background:rgba(8,8,16,.7);border:1px solid rgba(255,255,255,.06);
+      border-radius:8px;padding:8px 9px;font-size:8px;font-weight:600;letter-spacing:.1em;
+      text-transform:uppercase;color:rgba(255,255,255,.18);text-align:center;line-height:2;
+      backdrop-filter:blur(8px)}
+  </style>
 </head>
 <body>
-
-  <a-scene embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
-    renderer="logarithmicDepthBuffer: true; antialias: true;"
-    vr-mode-ui="enabled: false">
+  <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;"
+    renderer="logarithmicDepthBuffer: true; antialias: true;" vr-mode-ui="enabled: false">
     <a-entity camera></a-entity>
   </a-scene>
 
-  <div id="grid-overlay"></div>
-  <div id="scan-sweep"></div>
+  <div id="grid"></div>
+  <div id="sweep"></div>
 
-  <div id="top-bar">
-    <div class="wordmark">AR<span>istotle</span></div>
-    <div class="ai-indicator">
-      <div class="ai-dot"></div>
-      <span class="ai-label">AI Active</span>
-    </div>
-    <div class="version-label">Visionary 2.0</div>
+  <div id="topbar">
+    <div class="wm">AR<b>istotle</b></div>
+    <div class="pill"><div class="dot"></div><span>AI Live</span></div>
+    <div class="ver">Visionary 2.0</div>
   </div>
 
-  <div id="status-chip">Point camera at any object</div>
+  <div id="status">Point camera at any object</div>
 
-  <div id="crosshair">
-    <div class="ch-h"></div>
-    <div class="ch-v"></div>
-    <div class="ch-c tl"></div>
-    <div class="ch-c tr"></div>
-    <div class="ch-c bl"></div>
-    <div class="ch-c br"></div>
+  <div id="xhair">
+    <div class="ch h"></div><div class="ch v"></div>
+    <div class="cc tl"></div><div class="cc tr"></div>
+    <div class="cc bl"></div><div class="cc br"></div>
   </div>
 
-  <div id="bottom-panel">
-    <div id="panel-header">
-      <span id="panel-label">Detected Objects</span>
-      <span id="panel-count"></span>
+  <div id="results">
+    <div class="card" style="border-left-color:rgba(255,255,255,.15)">
+      <div class="ct"><div class="cn" style="color:rgba(255,255,255,.4)">Initializing</div></div>
+      <div class="cx">Starting camera and AI engine...</div>
+      <div class="cb"><div class="cf" style="width:8%;background:rgba(255,255,255,.15)"></div></div>
     </div>
-    <div id="cards">
-      <div class="result-card">
-        <div class="card-stripe init-stripe"></div>
-        <div class="card-body">
-          <div class="card-top">
-            <div class="card-name init-name">Initializing</div>
+    <div id="watermark">AR.js<br>YOLO<br>LLaMA 3<br>FastAPI</div>
+  </div>
+
+  <script>
+    const BACKEND = 'http://localhost:8000';
+    let busy = false;
+    const statusEl  = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const wmark     = document.getElementById('watermark');
+
+    function col(c){
+      if(c>=.75) return {s:'#4ade80',t:'#4ade80',b:'#4ade80'};
+      if(c>=.5)  return {s:'#fbbf24',t:'#fbbf24',b:'#fbbf24'};
+      return           {s:'#f87171',t:'#f87171',b:'#f87171'};
+    }
+
+    function setStatus(m,c){statusEl.textContent=m;statusEl.style.color=c||'rgba(255,255,255,.35)'}
+
+    function render(items){
+      while(resultsEl.firstChild&&resultsEl.firstChild!==wmark)
+        resultsEl.removeChild(resultsEl.firstChild);
+
+      if(!items||items.length===0){
+        const d=document.createElement('div');
+        d.className='card';d.style.borderLeftColor='rgba(255,255,255,.15)';
+        d.innerHTML=`<div class="ct"><div class="cn" style="color:rgba(255,255,255,.5)">Nothing detected</div></div>
+          <div class="cx">Move closer or improve lighting.</div>
+          <div class="cb"><div class="cf" style="width:0%"></div></div>`;
+        resultsEl.insertBefore(d,wmark);return;
+      }
+
+      items.forEach(item=>{
+        const pct=Math.round(item.confidence*100);
+        const c=col(item.confidence);
+        const name=item.label.charAt(0).toUpperCase()+item.label.slice(1);
+        const d=document.createElement('div');
+        d.className='card';d.style.borderLeftColor=c.s;
+        d.innerHTML=`<div class="ct">
+            <div class="cn">${name}</div>
+            <div class="cp" style="color:${c.t}">${pct}%</div>
           </div>
-          <div class="card-text">Starting camera and AI. Point at any object to begin.</div>
-          <div class="bar-row">
-            <div class="bar-track">
-              <div class="bar-fill init-bar"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="tech-strip">
-      <span class="tech-tag">AR.js</span>
-      <span class="tech-tag">YOLOv8</span>
-      <span class="tech-tag">LLaMA 3</span>
-      <span class="tech-tag">FastAPI</span>
-      <span class="tech-tag">LangChain</span>
-    </div>
-  </div>
+          <div class="cx">${item.explanation||'Generating explanation...'}</div>
+          <div class="cb"><div class="cf" style="width:${pct}%;background:${c.b}"></div></div>`;
+        resultsEl.insertBefore(d,wmark);
+      });
+    }
 
-  <script src="app.js"></script>
+    async function analyze(){
+      if(busy)return;busy=true;
+      const video=document.querySelector('video');
+      if(!video||video.readyState<2){setStatus('Waiting for camera...');busy=false;return;}
+      setStatus('Analyzing...','rgba(251,191,36,.75)');
+      try{
+        const canvas=document.createElement('canvas');
+        canvas.width=640;canvas.height=480;
+        canvas.getContext('2d').drawImage(video,0,0,640,480);
+        const frame=canvas.toDataURL('image/jpeg',.65);
+        const res=await fetch(`${BACKEND}/analyze`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({image:frame})
+        });
+        if(!res.ok)throw new Error(`HTTP ${res.status}`);
+        const data=await res.json();
+        const items=Array.isArray(data)?data:[data];
+        render(items);
+        setStatus(items.length>0?`${items.length} object${items.length>1?'s':''} identified`:'Nothing found — keep scanning',
+          items.length>0?'rgba(74,222,128,.8)':'rgba(255,255,255,.3)');
+      }catch(e){
+        console.error('[ARistotle]',e.message);
+        setStatus('Backend error — check terminal','rgba(248,113,113,.8)');
+        while(resultsEl.firstChild&&resultsEl.firstChild!==wmark)
+          resultsEl.removeChild(resultsEl.firstChild);
+        const d=document.createElement('div');d.className='card';d.style.borderLeftColor='#f87171';
+        d.innerHTML=`<div class="ct"><div class="cn" style="color:#f87171">Backend error</div></div>
+          <div class="cx">Run: <code style="color:#4ade80;font-family:monospace">uvicorn main:app --reload --host 0.0.0.0 --port 8000</code></div>
+          <div class="cb"><div class="cf" style="width:100%;background:#f87171"></div></div>`;
+        resultsEl.insertBefore(d,wmark);
+      }
+      busy=false;
+    }
+
+    setTimeout(()=>{analyze();setInterval(analyze,3500);},2500);
+  </script>
 </body>
 </html>
