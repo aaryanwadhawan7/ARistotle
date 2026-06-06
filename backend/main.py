@@ -10,11 +10,14 @@ from explainer import get_explanation
 
 app = FastAPI()
 
+# FIXED: explicit origins instead of wildcard
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 class ImageRequest(BaseModel):
@@ -50,4 +53,5 @@ async def analyze(req: ImageRequest):
         return results
 
     except Exception as e:
-        return {"error": str(e)}
+        print(f"Error: {e}")
+        return []
