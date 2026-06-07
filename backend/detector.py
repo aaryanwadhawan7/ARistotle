@@ -2,12 +2,14 @@ from ultralytics import YOLO
 import numpy as np
 import cv2
 
-model = YOLO("yolov8n.pt")
+model = None
 
 # Objects to ignore — they appear constantly and add no value
 IGNORE = {"person"}
 
 def detect_objects(frame):
+    global model
+    
     h, w = frame.shape[:2]
     if w < 800:
         frame = cv2.resize(frame, (800, int(h * 800 / w)))
