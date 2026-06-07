@@ -26,7 +26,7 @@ No app download. No setup for the end user. Just open a URL.
 |---|---|
 | **Frontend** | https://aristotle-ar.netlify.app |
 | **Backend API** | https://aristotle-backend.onrender.com |
-| **GitHub** | https://github.com/aaryanwadhawan7/ARistotle-ar |
+| **GitHub** | https://github.com/aaryanwadhawan7/ARistotle |
 
 ---
 
