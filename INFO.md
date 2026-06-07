@@ -27,8 +27,3 @@
 - base64 converts binary image bytes into a text string for API transfer
 - CORS middleware is needed when frontend and backend run on different ports
 - Caching API responses prevents repeated calls for same object
-
-## How To Run
-- Terminal 1 (backend):  cd backend → uvicorn main:app --reload --port 8000
-- Terminal 2 (frontend): cd frontend → python -m http.server 3000
-- Open browser: http://localhost:3000

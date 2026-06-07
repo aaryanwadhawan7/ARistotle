@@ -180,7 +180,12 @@
       busy=false;
     }
 
-    setTimeout(()=>{analyze();setInterval(analyze,3500);},2500);
+    // Wake Render backend immediately on page load
+    setStatus('Connecting to AI...','rgba(251,191,36,.75)');
+    fetch(`${BACKEND}/`).catch(()=>{});
+    
+    // Then start analyzing after 8 seconds (gives Render time to wake)
+    setTimeout(()=>{analyze();setInterval(analyze,3500);},8000);
   </script>
 </body>
 </html>
