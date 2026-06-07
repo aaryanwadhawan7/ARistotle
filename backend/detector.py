@@ -9,7 +9,10 @@ IGNORE = {"person"}
 
 def detect_objects(frame):
     global model
-    
+
+    if model is None:
+        model = YOLO("yolov8n.pt")
+        
     h, w = frame.shape[:2]
     if w < 800:
         frame = cv2.resize(frame, (800, int(h * 800 / w)))
